@@ -3,6 +3,7 @@ import type { EChartsOption } from 'echarts'
 import type { HeatmapViewModel } from '../types'
 import { formatStrike, formatUsdCompact } from '../lib/format'
 import { readClickPayload } from '../lib/chartClick'
+import { categoryZoomAround } from '../lib/chartZoom'
 import { nearestStrike } from '../lib/gex'
 import { EChart } from './EChart'
 
@@ -43,6 +44,12 @@ export function ProfilePanel({ view, selectedStrike, onInspect }: Props) {
 
 function buildOption(view: HeatmapViewModel, selectedStrike: number | null): EChartsOption {
   const labels = view.profile.map((row) => formatStrike(row.strike))
+  const yZoom = categoryZoomAround(
+    labels,
+    view.profile.map((row) => row.strike),
+    view.spot,
+    34,
+  )
   const values = view.profile.map((row) => {
     const value =
       view.gexView === 'call' ? row.callGex : view.gexView === 'put' ? row.putGex : row.netGex
@@ -70,14 +77,14 @@ function buildOption(view: HeatmapViewModel, selectedStrike: number | null): ECh
   if (spotStrike != null) {
     markLineData.push({
       yAxis: formatStrike(spotStrike),
-      label: { formatter: 'SPOT', color: '#67e8f9', fontSize: 10 },
+      label: { formatter: 'SPOT', color: '#67e8f9', fontSize: 10, position: 'insideStartTop' },
       lineStyle: { color: '#67e8f9', type: 'solid', width: 1.4 },
     })
   }
   if (flipStrike != null) {
     markLineData.push({
       yAxis: formatStrike(flipStrike),
-      label: { formatter: 'FLIP', color: '#f5c14a', fontSize: 10 },
+      label: { formatter: 'FLIP', color: '#f5c14a', fontSize: 10, position: 'insideStartBottom' },
       lineStyle: { color: '#f5c14a', type: 'dashed', width: 1.2 },
     })
   }
@@ -108,7 +115,7 @@ function buildOption(view: HeatmapViewModel, selectedStrike: number | null): ECh
         ].join('')
       },
     },
-    grid: { left: 56, right: 16, top: 12, bottom: 36, containLabel: false },
+    grid: { left: 56, right: 22, top: 12, bottom: 36, containLabel: false },
     xAxis: {
       type: 'value',
       axisLine: { show: false },
@@ -132,15 +139,21 @@ function buildOption(view: HeatmapViewModel, selectedStrike: number | null): ECh
       },
     },
     dataZoom: [
-      { type: 'inside', yAxisIndex: 0, filterMode: 'none' },
+      {
+        type: 'inside',
+        yAxisIndex: 0,
+        filterMode: 'none',
+        ...yZoom,
+      },
       {
         type: 'slider',
         yAxisIndex: 0,
         filterMode: 'none',
         width: 8,
-        right: 2,
+        right: 4,
         top: 12,
         bottom: 36,
+        ...yZoom,
         borderColor: 'transparent',
         backgroundColor: 'rgba(255,255,255,0.04)',
         fillerColor: 'rgba(74,163,255,0.18)',

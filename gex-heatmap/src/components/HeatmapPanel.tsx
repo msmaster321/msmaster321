@@ -10,6 +10,7 @@ import {
   formatUsdCompact,
 } from '../lib/format'
 import { readClickPayload } from '../lib/chartClick'
+import { categoryZoomAround } from '../lib/chartZoom'
 import { cellDisplayValue, cellKey, nearestStrike } from '../lib/gex'
 import { EChart } from './EChart'
 
@@ -86,6 +87,7 @@ function buildOption(
     return formatExpiryTick(exp, sample?.dte ?? 0)
   })
   const yLabels = view.strikes.map(formatStrike)
+  const yZoom = categoryZoomAround(yLabels, view.strikes, view.spot, 34)
   const data = []
   for (let yi = 0; yi < view.strikes.length; yi++) {
     const strike = view.strikes[yi]!
@@ -120,6 +122,7 @@ function buildOption(
         color: '#67e8f9',
         fontFamily: 'IBM Plex Mono, monospace',
         fontSize: 11,
+        position: 'insideStartTop',
       },
       lineStyle: { color: '#67e8f9', width: 1.7, type: 'solid' },
     })
@@ -133,6 +136,7 @@ function buildOption(
         color: '#f5c14a',
         fontFamily: 'IBM Plex Mono, monospace',
         fontSize: 11,
+        position: 'insideStartBottom',
       },
       lineStyle: { color: '#f5c14a', width: 1.4, type: 'dashed' },
     })
@@ -146,6 +150,7 @@ function buildOption(
         color: '#93c5fd',
         fontFamily: 'IBM Plex Mono, monospace',
         fontSize: 11,
+        position: 'insideEndTop',
       },
       lineStyle: { color: '#60a5fa', width: 1, type: 'dotted' },
     })
@@ -228,7 +233,13 @@ function buildOption(
       handleStyle: { borderColor: '#e8eef6' },
     },
     dataZoom: [
-      { type: 'inside', yAxisIndex: 0, filterMode: 'none', zoomOnMouseWheel: true },
+      {
+        type: 'inside',
+        yAxisIndex: 0,
+        filterMode: 'none',
+        zoomOnMouseWheel: true,
+        ...yZoom,
+      },
       { type: 'inside', xAxisIndex: 0, filterMode: 'none', zoomOnMouseWheel: false },
       {
         type: 'slider',
@@ -238,6 +249,7 @@ function buildOption(
         right: 8,
         top: 16,
         bottom: 88,
+        ...yZoom,
         borderColor: 'transparent',
         backgroundColor: 'rgba(255,255,255,0.04)',
         fillerColor: 'rgba(74,163,255,0.18)',

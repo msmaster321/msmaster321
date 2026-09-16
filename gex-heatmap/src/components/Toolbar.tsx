@@ -73,22 +73,24 @@ export function Toolbar({ session }: Props) {
             </button>
           ))}
         </div>
-        <label className="select-field">
-          <span>Data</span>
-          <select
-            value={session.source}
-            onChange={(event) => session.setSource(event.target.value as DataSource)}
-          >
-            {sources.map((src) => (
-              <option key={src.id} value={src.id}>
-                {src.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="btn" onClick={session.reload} disabled={session.loading}>
-          {session.loading ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <div className="toolbar-actions">
+          <label className="select-field">
+            <span>Data</span>
+            <select
+              value={session.source}
+              onChange={(event) => session.setSource(event.target.value as DataSource)}
+            >
+              {sources.map((src) => (
+                <option key={src.id} value={src.id}>
+                  {src.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="btn" onClick={session.reload} disabled={session.loading}>
+            {session.loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       <div className="toolbar-row wrap">
