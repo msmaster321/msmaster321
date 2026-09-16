@@ -34,8 +34,8 @@ const WINDOWS: { id: StrikeWindow; label: string }[] = [
 
 export function Toolbar({ session }: Props) {
   const sources: { id: DataSource; label: string }[] = [
-    { id: 'demo', label: 'Demo' },
     { id: 'yahoo', label: 'Yahoo live' },
+    { id: 'demo', label: 'Demo' },
   ]
   if (session.customUrl) sources.push({ id: 'custom', label: 'Custom API' })
 

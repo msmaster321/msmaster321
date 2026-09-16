@@ -10,6 +10,8 @@ import { formatTime } from './lib/format'
 export default function App() {
   const session = useGexSession()
   const view = session.view
+  const snapshot = session.result?.snapshot ?? null
+  const failed = Boolean(session.result?.error)
 
   return (
     <div className="app">
@@ -22,22 +24,32 @@ export default function App() {
           </div>
         </div>
         <div className="top-meta">
-          <span className={`source-chip ${session.result?.snapshot.source ?? 'demo'}`}>
-            {session.result?.fallback
-              ? 'DEMO FALLBACK'
-              : (session.result?.snapshot.source ?? 'demo').toUpperCase()}
-          </span>
-          {session.result && <span className="asof">as of {formatTime(session.result.snapshot.asOf)}</span>}
+          <SourceBadge
+            source={session.source}
+            snapshotSource={snapshot?.source ?? null}
+            loading={session.loading}
+            failed={failed}
+          />
+          {snapshot && (
+            <span className="asof">as of {formatTime(snapshot.asOf)}</span>
+          )}
         </div>
       </header>
 
-      <StatusBanner result={session.result} loading={session.loading} />
+      <StatusBanner
+        result={session.result}
+        loading={session.loading}
+        source={session.source}
+        symbol={session.symbol}
+        onUseDemo={session.useDemo}
+        onRetry={session.reload}
+      />
       <Toolbar session={session} />
 
       {view ? (
         <>
           <SummaryCards view={view} />
-          <div className="workspace">
+          <div className={`workspace${session.loading ? ' is-loading' : ''}`}>
             <HeatmapPanel
               view={view}
               selectedStrike={session.selectedStrike}
@@ -62,7 +74,13 @@ export default function App() {
       ) : (
         <div className="workspace">
           <section className="panel">
-            <div className="empty">Building GEX surface…</div>
+            <div className="empty">
+              {failed
+                ? 'Live chain unavailable. Retry Yahoo or load demo data to render the heatmap.'
+                : session.loading
+                  ? `Building live GEX surface for ${session.symbol}…`
+                  : 'No options chain loaded.'}
+            </div>
           </section>
         </div>
       )}
@@ -74,6 +92,35 @@ export default function App() {
       </footer>
     </div>
   )
+}
+
+function SourceBadge({
+  source,
+  snapshotSource,
+  loading,
+  failed,
+}: {
+  source: string
+  snapshotSource: string | null
+  loading: boolean
+  failed: boolean
+}) {
+  if (failed && snapshotSource == null) {
+    return <span className="source-chip failed">LIVE FAILED</span>
+  }
+  if (loading && snapshotSource == null) {
+    return <span className="source-chip loading">LOADING LIVE</span>
+  }
+  if (snapshotSource === 'yahoo') {
+    return <span className="source-chip live">Live · Yahoo</span>
+  }
+  if (snapshotSource === 'custom') {
+    return <span className="source-chip live">Live · Custom</span>
+  }
+  if (snapshotSource === 'demo') {
+    return <span className="source-chip demo">DEMO</span>
+  }
+  return <span className="source-chip">{source.toUpperCase()}</span>
 }
 
 function Logo() {

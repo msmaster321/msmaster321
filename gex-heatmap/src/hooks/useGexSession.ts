@@ -13,7 +13,7 @@ import type {
 const POPULAR = ['SPY', 'QQQ', 'IWM', 'SPX', 'AAPL', 'NVDA', 'TSLA', 'MSFT']
 
 function uniqueExpirations(result: LoadResult | null): string[] {
-  if (!result) return []
+  if (!result?.snapshot) return []
   return [...new Set(result.snapshot.contracts.map((c) => c.expiration))].sort()
 }
 
@@ -50,6 +50,10 @@ export function useGexSession() {
     setReloadNonce((n) => n + 1)
   }, [])
 
+  const useDemo = useCallback(() => {
+    setSource('demo')
+  }, [])
+
   const submitSymbol = useCallback((next?: string) => {
     const trimmed = (next ?? symbolInput).trim().toUpperCase()
     if (!trimmed) return
@@ -62,6 +66,11 @@ export function useGexSession() {
   useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
+    setResult((prev) => {
+      if (source === 'demo') return prev
+      if (prev?.snapshot?.source === source && prev.error == null) return prev
+      return null
+    })
     void loadChain(symbol, source, customUrl, controller.signal)
       .then((next) => {
         if (controller.signal.aborted) return
@@ -82,7 +91,7 @@ export function useGexSession() {
   )
 
   const view = useMemo(() => {
-    if (!result) return null
+    if (!result?.snapshot) return null
     return buildHeatmapView(result.snapshot, {
       expirations: activeExpirations,
       gexView,
@@ -128,6 +137,7 @@ export function useGexSession() {
       setSelectedExpiration(null)
     },
     reload,
+    useDemo,
   }
 }
 

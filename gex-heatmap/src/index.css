@@ -107,14 +107,25 @@ select {
 .source-chip.demo,
 .source-chip.DEMO {
   color: #93c5fd;
+  background: rgba(59, 130, 246, 0.12);
 }
 
-.source-chip.yahoo {
-  color: var(--pos);
-}
-
+.source-chip.live,
+.source-chip.yahoo,
 .source-chip.custom {
-  color: var(--flip);
+  color: #bbf7d0;
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.source-chip.failed {
+  color: #fde68a;
+  background: rgba(245, 193, 74, 0.14);
+  border-color: rgba(245, 193, 74, 0.4);
+}
+
+.source-chip.loading {
+  color: #bae6fd;
 }
 
 .banner {
@@ -122,6 +133,11 @@ select {
   padding: 9px 12px;
   font-size: 13px;
   border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .banner.info {
@@ -130,8 +146,15 @@ select {
 }
 
 .banner.warn {
-  background: rgba(245, 193, 74, 0.1);
+  background: rgba(245, 193, 74, 0.12);
   color: #fde68a;
+  border-color: rgba(245, 193, 74, 0.35);
+}
+
+.banner-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
 }
 
 .toolbar {
@@ -337,6 +360,10 @@ select {
   grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr);
   gap: 12px;
   min-height: 580px;
+}
+
+.workspace.is-loading {
+  opacity: 0.72;
 }
 
 .panel {

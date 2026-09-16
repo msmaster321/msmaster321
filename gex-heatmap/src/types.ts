@@ -65,7 +65,7 @@ export interface HeatmapViewModel {
 }
 
 export interface LoadResult {
-  snapshot: ChainSnapshot
-  fallback: boolean
-  warning: string | null
+  snapshot: ChainSnapshot | null
+  error: string | null
+  requestedSource: DataSource
 }

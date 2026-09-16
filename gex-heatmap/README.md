@@ -2,7 +2,7 @@
 
 Desktop-friendly Gamma Exposure heatmap for visualizing dealer gamma across strikes and expirations. Classic GEX workflow for SPX/SPY/QQQ and single-stock options.
 
-Demo mode works with no API keys. Optional live Yahoo Finance options (via the Vite dev proxy) or a custom chain API.
+**Yahoo live options are the default.** Demo mode remains one click away if the live feed is unavailable.
 
 ## Quick start
 
@@ -12,7 +12,7 @@ npm install
 npm run dev
 ```
 
-Open the printed local URL (default `http://localhost:5173`). The first load renders a synthetic **SPY** chain and heatmap immediately.
+Open the printed local URL (default `http://localhost:5173`). The first load fetches a **live Yahoo Finance** options chain for **SPY** (delayed quotes). If Yahoo fails, an amber banner shows the real error and a **Use demo data** button.
 
 | Script | Purpose |
 | --- | --- |
@@ -85,30 +85,43 @@ The app walks a grid of spots around the quote (`±18%`, 96 steps) and linearly 
 
 ## Data sources
 
-### Demo (default)
+### Yahoo Finance (default live)
 
-Deterministic synthetic chain seeded by `symbol + calendar date`:
+First load uses Yahoo delayed options. Copy `.env.example` if you want the env var explicit; **the UI still defaults to Yahoo when `.env.local` is missing**.
+
+```bash
+# gex-heatmap/.env.local  (optional — Yahoo is already the default)
+VITE_DATA_SOURCE=yahoo
+```
+
+`npm run dev` runs a Vite plugin that:
+
+1. Completes Yahoo’s cookie + crumb handshake (`fc.yahoo.com` → `/v1/test/getcrumb`)
+2. Proxies `/api/yahoo/*` to `https://query1.finance.yahoo.com` with that crumb
+
+The browser never talks to Yahoo directly, so there is no CORS issue. Yahoo does not always publish gammas; the app **recomputes Γ from listed IV**.
+
+On failure the heatmap does **not** silently switch to demo. You get:
+
+- an amber **LIVE FAILED** badge
+- the real error text
+- **Retry live** and **Use demo data**
+
+A successful live load shows a green **Live · Yahoo** badge and the quote’s as-of time.
+
+Yahoo’s options endpoint is unofficial and can rate-limit or require a fresh crumb. The proxy refreshes the session on 401.
+
+The crumb handshake is part of the **dev/preview server**. A static `vite preview` without this plugin, or GitHub Pages hosting, cannot fetch live chains unless you put an equivalent proxy in front.
+
+### Demo (manual fallback)
+
+Toolbar **Data → Demo**, or the banner’s **Use demo data** button. Deterministic synthetic chain seeded by `symbol + calendar date`:
 
 - Realistic expirations (0DTE/weeklies for indexes and major ETFs; weeklies + monthlies for single names).
 - IV smile + put skew + term-structure bump for near-dated options.
 - OI clustered around ATM, heavier on puts below spot and calls above, with round-strike bumps.
 
-No network required. The blue banner states that the chain is synthetic.
-
-### Yahoo Finance (optional live)
-
-In the toolbar choose **Yahoo live**, or start with live data by default:
-
-```bash
-# gex-heatmap/.env.local
-VITE_DATA_SOURCE=yahoo
-```
-
-The Vite dev server proxies ` /api/yahoo/* ` to `https://query2.finance.yahoo.com` to avoid browser CORS. Yahoo does not always publish gammas; the app **recomputes Γ from listed IV** with the formula above.
-
-Yahoo’s options endpoint is unofficial, delayed, and can require cookies or return empty chains. **On any failure the app falls back to demo** and shows an amber banner with the error.
-
-Live fetches are **not** available from `vite preview` / static hosting unless you put an equivalent proxy in front.
+The blue banner and **DEMO** badge make it unambiguous that the chain is synthetic.
 
 ### Custom REST API
 

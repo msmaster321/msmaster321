@@ -1,6 +1,6 @@
 import type { ChainSnapshot, OptionContract } from '../types'
 import { bsGamma } from '../lib/blackScholes'
-import { dte, timeToExpiryYears, toIsoDate } from '../lib/dates'
+import { dte, timeToExpiryYears } from '../lib/dates'
 
 const INDEX_MAP: Record<string, string> = {
   SPX: '^SPX',
@@ -20,6 +20,10 @@ function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value : null
+}
+
 function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : []
 }
@@ -29,7 +33,32 @@ function yahooSymbol(symbol: string): string {
 }
 
 function unixToIso(seconds: number): string {
-  return toIsoDate(new Date(seconds * 1000))
+  const date = new Date(seconds * 1000)
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function nestedError(payload: unknown): string | null {
+  const root = asRecord(payload)
+  if (!root) return null
+  if (asString(root.error)) return asString(root.error)
+  const finance = asRecord(root.finance)
+  const chain = asRecord(root.optionChain)
+  const error = asRecord(finance?.error) ?? asRecord(chain?.error)
+  if (!error) return null
+  return asString(error.description) ?? asString(error.code)
+}
+
+function failureMessage(status: number, text: string, payload: unknown): string {
+  const nested = nestedError(payload)
+  if (nested) return `Yahoo Finance: ${nested}`
+  if (status === 401) return 'Yahoo Finance rejected the request (unauthorized crumb/cookie)'
+  if (status === 429) return 'Yahoo Finance rate-limited the options request'
+  if (status === 404) return 'Yahoo Finance has no options chain for this symbol'
+  const snippet = text.replace(/\s+/g, ' ').slice(0, 140)
+  return `Yahoo Finance HTTP ${status}${snippet ? `: ${snippet}` : ''}`
 }
 
 function parseContracts(
@@ -48,7 +77,7 @@ function parseContracts(
     if (strike == null) continue
     const oi = asNumber(rec.openInterest) ?? 0
     let iv = asNumber(rec.impliedVolatility) ?? 0
-    if (iv > 3) iv = iv / 100
+    if (iv > 5) iv = iv / 100
     if (iv <= 0) iv = 0.2
     const gamma = asNumber(rec.gamma) ?? bsGamma(spot, strike, t, iv)
     out.push({
@@ -65,19 +94,24 @@ function parseContracts(
 
 async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
   const response = await fetch(url, { signal })
-  if (!response.ok) {
-    throw new Error(`Yahoo Finance HTTP ${response.status}`)
+  const text = await response.text()
+  let payload: unknown = null
+  try {
+    payload = text ? JSON.parse(text) : null
+  } catch {
+    payload = null
   }
-  return response.json()
+  if (!response.ok) {
+    throw new Error(failureMessage(response.status, text, payload))
+  }
+  return payload
 }
 
 function extractResult(payload: unknown): Record<string, unknown> {
+  const nested = nestedError(payload)
+  if (nested) throw new Error(`Yahoo Finance: ${nested}`)
   const root = asRecord(payload)
   const chain = asRecord(root?.optionChain)
-  const error = asRecord(chain?.error)
-  if (error && (error.description || error.code)) {
-    throw new Error(String(error.description ?? error.code))
-  }
   const result = asArray(chain?.result)[0]
   const rec = asRecord(result)
   if (!rec) throw new Error('Yahoo Finance returned an empty options chain')
@@ -144,15 +178,19 @@ export async function fetchYahooChain(
   }
 
   if (contracts.length === 0) {
-    throw new Error('Yahoo Finance chain contained no option contracts')
+    throw new Error(`Yahoo Finance chain for ${symbol} contained no option contracts`)
   }
 
   const filtered = contracts.filter((c) => dte(c.expiration, now) >= -1)
+  if (filtered.length === 0) {
+    throw new Error(`Yahoo Finance chain for ${symbol} has no current or upcoming expirations`)
+  }
 
+  const marketTime = asNumber(quote.regularMarketTime)
   return {
     symbol,
     spot,
-    asOf: now.toISOString(),
+    asOf: marketTime != null ? new Date(marketTime * 1000).toISOString() : now.toISOString(),
     source: 'yahoo',
     multiplier: 100,
     contracts: filtered,
