@@ -8,9 +8,11 @@ import {
   formatOi,
   formatStrike,
   formatUsdCompact,
+  formatUsdFull,
 } from '../lib/format'
 import { readClickPayload } from '../lib/chartClick'
 import { categoryZoomAround } from '../lib/chartZoom'
+import { heatmapDollarLabels } from '../lib/heatmapLabels'
 import { cellDisplayValue, cellKey, nearestStrike } from '../lib/gex'
 import { EChart } from './EChart'
 
@@ -50,7 +52,7 @@ export function HeatmapPanel({
           <h2>GEX heatmap</h2>
           <p>
             Strikes × expirations · {view.gexView === 'net' ? 'Net' : view.gexView === 'call' ? 'Call' : 'Put'}{' '}
-            dealer GEX · {view.unit === 'pct' ? 'per 1% move' : 'per $1 move'}
+            dealer GEX · {view.unit === 'pct' ? 'per 1% move' : 'per $1 move'} · $ on largest |GEX|
           </p>
         </div>
         <div className="legend-scale">
@@ -87,7 +89,8 @@ function buildOption(
     return formatExpiryTick(exp, sample?.dte ?? 0)
   })
   const yLabels = view.strikes.map(formatStrike)
-  const yZoom = categoryZoomAround(yLabels, view.strikes, view.spot, 34)
+  const yZoom = categoryZoomAround(yLabels, view.strikes, view.spot, 28)
+  const dollarLabels = heatmapDollarLabels(view.cells, view.gexView, view.colorMax)
   const data = []
   for (let yi = 0; yi < view.strikes.length; yi++) {
     const strike = view.strikes[yi]!
@@ -97,10 +100,12 @@ function buildOption(
       if (!cell) continue
       const value = cellDisplayValue(cell, view.gexView)
       const selected = selectedStrike === strike && selectedExpiration === expiration
+      const usdLabel = dollarLabels.get(cellKey(strike, expiration)) ?? ''
       data.push({
         value: [xi, yi, value],
         strike,
         expiration,
+        usdLabel,
         itemStyle: selected
           ? { borderColor: '#93c5fd', borderWidth: 1.5 }
           : { borderColor: '#07090c', borderWidth: 0.5 },
@@ -180,9 +185,9 @@ function buildOption(
           `<div class="tt">`,
           `<div class="tt-k">${view.symbol} ${formatStrike(cell.strike)}</div>`,
           `<div class="tt-exp">${formatExpiryLong(cell.expiration, cell.dte)}</div>`,
-          `<div class="tt-row"><span>Net GEX</span><b class="${cell.netGex >= 0 ? 'pos' : 'neg'}">${formatUsdCompact(cell.netGex)}</b></div>`,
-          `<div class="tt-row"><span>Call GEX</span><b class="pos">${formatUsdCompact(cell.callGex)}</b></div>`,
-          `<div class="tt-row"><span>Put GEX</span><b class="neg">${formatUsdCompact(cell.putGex)}</b></div>`,
+          tooltipGexRow('Net GEX', cell.netGex, cell.netGex >= 0 ? 'pos' : 'neg'),
+          tooltipGexRow('Call GEX', cell.callGex, 'pos'),
+          tooltipGexRow('Put GEX', cell.putGex, 'neg'),
           `<div class="tt-row"><span>Call OI</span><b>${formatOi(cell.callOi)}</b></div>`,
           `<div class="tt-row"><span>Put OI</span><b>${formatOi(cell.putOi)}</b></div>`,
           `<div class="tt-row"><span>Call γ / IV</span><b>${formatGamma(cell.callGamma)} · ${formatIv(cell.callIv)}</b></div>`,
@@ -266,8 +271,28 @@ function buildOption(
       {
         type: 'heatmap',
         data,
+        label: {
+          show: true,
+          fontSize: 9,
+          fontWeight: 600,
+          fontFamily: 'IBM Plex Mono, monospace',
+          color: '#f8fafc',
+          textBorderColor: 'rgba(7, 9, 12, 0.82)',
+          textBorderWidth: 3,
+          formatter: (params) => usdLabelFromParams(params),
+        },
         emphasis: {
           itemStyle: { borderColor: '#e8eef6', borderWidth: 1, shadowBlur: 8, shadowColor: 'rgba(0,0,0,0.4)' },
+          label: {
+            show: true,
+            formatter: (params) => {
+              const labeled = usdLabelFromParams(params)
+              if (labeled) return labeled
+              const triple = (params as { value?: unknown }).value
+              const raw = Array.isArray(triple) ? Number(triple[2]) : Number.NaN
+              return Number.isFinite(raw) && raw !== 0 ? formatUsdCompact(raw) : ''
+            },
+          },
         },
         itemStyle: { borderColor: '#07090c', borderWidth: 0.5 },
         markLine: {
@@ -279,4 +304,14 @@ function buildOption(
       },
     ],
   }
+}
+
+function tooltipGexRow(label: string, value: number, cls: string): string {
+  return `<div class="tt-row"><span>${label}</span><b class="${cls}">${formatUsdCompact(value)} <span class="tt-full">${formatUsdFull(value)}</span></b></div>`
+}
+
+function usdLabelFromParams(params: { data?: unknown }): string {
+  if (params.data === null || typeof params.data !== 'object') return ''
+  const label = (params.data as { usdLabel?: unknown }).usdLabel
+  return typeof label === 'string' ? label : ''
 }

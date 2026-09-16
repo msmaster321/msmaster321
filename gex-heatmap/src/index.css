@@ -526,6 +526,13 @@ tr.is-active td {
   color: #93a4bb;
 }
 
+.tt-full {
+  color: #93a4bb;
+  font-weight: 500;
+  margin-left: 8px;
+  font-size: 11px;
+}
+
 @media (max-width: 1100px) {
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
